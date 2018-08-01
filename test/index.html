@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Benchmark: node-lz4, snappyjs, lz4-wasm</title>
+</head>
+<body style="font: 14px sans-serif">
+<h1>Benchmark:
+    <a href="https://github.com/pierrec/node-lz4">node-lz4</a>,
+    <a href="https://github.com/zhipeng-jia/snappyjs">snappyjs</a>,
+    <a href="https://github.com/gorhill/lz4-wasm">lz4-wasm</a>
+</h1>
+<p><input type="file"></p>
+<div id="results-0" style="white-space:pre;font-family:mono"></div>
+<p><button id="runBenchmark" disabled>Benchmark</button></p>
+<div id="results-1" style="white-space:pre;font-family:mono"></div>
+<div id="results-2" style="white-space:pre;font-family:mono"></div>
+<div id="results-3" style="white-space:pre;font-family:mono"></div>
+<div id="results-4" style="white-space:pre;font-family:mono"></div>
+
+<script src="https://cdn.jsdelivr.net/lodash/4.17.2/lodash.min.js"></script>
+<script src="https://cdn.jsdelivr.net/platform.js/1.3.3/platform.js"></script>
+<script src="https://cdn.jsdelivr.net/benchmarkjs/2.1.2/benchmark.js"></script>
+<script src="https://rawgit.com/zhipeng-jia/snappyjs/master/dist/snappyjs.min.js"></script>
+<script src="https://rawgit.com/pierrec/node-lz4/master/build/lz4.min.js"></script>
+<script src="index.js"></script>
+</body>
+</html>

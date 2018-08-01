@@ -229,7 +229,7 @@ function prepareBenchmark() {
             .on('start', function() {
                 lz4Compressed = lz4Encode(gFileBuffer);
                 snappyCompressed = SnappyJS.compress(gFileBuffer);
-                lz4wasmCompressed = lz4wasmEncode(gFileBuffer);
+                lz4wasmCompressed = new Uint8Array(lz4wasmEncode(gFileBuffer));
                 stdout(gWhich + 2, 'Uncompress:\n');
                 })
             .on('cycle', event => {

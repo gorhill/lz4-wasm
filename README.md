@@ -18,6 +18,6 @@ You can get `wat2wasm` at <https://github.com/WebAssembly/wabt>.
 
 # Test
 
-Note: the test/benchmark page uses javascript implementations of other compression libraries to give an idea of the benefits of using WebAssembly.
+Note: the test/benchmark page uses javascript implementation of other compression libraries solely for the sake of comparison with javascript-based solutions.
 
 [Test & benchmark page](https://gorhill.github.io/lz4-wasm/test/index.html).

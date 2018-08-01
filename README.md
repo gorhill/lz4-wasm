@@ -6,6 +6,16 @@ The current implementation encode/decode LZ4 block format as per [official docum
 
 LZ4 frame format is not implemented at this time.
 
+# Files
+
+`./src/lz4-block-codec.wat`: the WebAssembly source code
+
+`./dist/lz4-block-codec.wasm`: the compiled WebAssembly source code, generated using:
+
+        wat2wasm ./lz4-block-codec.wat -o ./dist/lz4-block-codec.wasm
+
+You can get `wat2wasm` at <https://github.com/WebAssembly/wabt>.
+
 # Test
 
 [Test & benchmark page](https://gorhill.github.io/lz4-wasm/test/index.html).

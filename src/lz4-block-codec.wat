@@ -588,7 +588,6 @@
     (param $outPtr i32)
     (param $len i32)
     (result i32)
-    (local $_ i32)                      ;; general purpose short term temp var
     get_local $len
     i32.const 15
     i32.sub

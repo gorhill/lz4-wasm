@@ -561,22 +561,18 @@
     get_local $outPtr
     get_local $llen
     i32.const 15
-    i32.gt_u
-    if
-      i32.const 15
-      set_local $llen
-    end
     get_local $llen
+    i32.const 15
+    i32.lt_u
+    select
     i32.const 4
     i32.shl
     get_local $mlen
     i32.const 15
-    i32.gt_u
-    if
-      i32.const 15
-      set_local $mlen
-    end
     get_local $mlen
+    i32.const 15
+    i32.lt_u
+    select
     i32.or
     i32.store8
 )
@@ -598,18 +594,13 @@
     i32.sub
     set_local $len
     loop
+        get_local $outPtr
         get_local $len
         i32.const 255
-        i32.gt_u
-        if
-            i32.const 255
-            set_local $_
-        else
-            get_local $len
-            set_local $_
-        end
-        get_local $outPtr
-        get_local $_
+        get_local $len
+        i32.const 255
+        i32.lt_u
+        select
         i32.store8
         get_local $outPtr
         i32.const 1

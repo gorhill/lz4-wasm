@@ -47,7 +47,6 @@
 ;; Public functions
 ;;
 
-
 ;;
 ;; Return an offset to the first byte of usable linear memory.
 ;; Might be useful in the future to reserve memory space for whatever purpose,
@@ -86,7 +85,11 @@
 )
 
 ;;
-;; unsigned int lz4BlockEncode(unsigned int ilen)
+;; unsigned int lz4BlockEncode(
+;;     unsigned int inPtr,
+;;     unsigned int ilen,
+;;     unsigned int outPtr
+;; )
 ;;
 ;; https://github.com/lz4/lz4/blob/dev/lib/lz4.c#L651
 ;;
@@ -103,51 +106,59 @@
 ;; implement the LZ4 frame format, which encode the content size, but this
 ;; is for another day.
 ;;
-(func (export "lz4BlockEncode")
+(func $lz4BlockEncode (export "lz4BlockEncode")
+    (param $inPtr i32)                  ;; pointer to start of input buffer
     (param $ilen i32)                   ;; size of input buffer
+    (param $outPtr i32)                 ;; pointer to start of output buffer
     (result i32)
-    (local $hashPtr0 i32)               ;; start of hash buffer
+    (local $hashPtrBeg i32)             ;; start of hash buffer
     (local $hashPtr i32)                ;; current hash entry
-    (local $inPtr0 i32)                 ;; start of input buffer
     (local $anchorPtr i32)              ;; anchor position in input
-    (local $inPtr i32)                  ;; current read position in input
-    (local $inPtr1 i32)                 ;; point in input at which match-finding must cease
-    (local $inPtr2 i32)                 ;; point in input at which match-length finding must cease
-    (local $outPtr0 i32)                ;; start of output buffer
-    (local $outPtr i32)                 ;; current write position in output
+    (local $inPtrEnd1 i32)              ;; point in input at which match-finding must cease
+    (local $inPtrEnd2 i32)              ;; point in input at which match-length finding must cease
+    (local $inPtrEnd i32)               ;; point to end of input
+    (local $outPtrBeg i32)              ;; start of output buffer
     (local $refPtr i32)                 ;; start of match in input
     (local $seq32 i32)                  ;; 4-byte value from current input position
     (local $llen i32)                   ;; length of found literals
     (local $moffset i32)                ;; offset to found match from current input position
     (local $mlen i32)                   ;; length of found match
-    get_local $ilen
-    i32.const 12
-    i32.le_u
+    get_local $ilen                     ;; empty input = empty output
+    i32.const 0x7E000000                ;; max input size: 0x7E000000
+    i32.gt_u
     if
         i32.const 0
         return
     end
-    call $getLinearMemoryOffset         ;; unsigned char *hashPtr0 = &buffer[0];
-    tee_local $hashPtr0
-    i32.const 262144                    ;; hash table size * bytes per i32 = 65536 * 4
-    i32.add
-    tee_local $inPtr0
-    tee_local $inPtr
+    get_local $ilen                     ;; "blocks < 13 bytes cannot be compressed"
+    i32.const 13
+    i32.lt_u
+    if
+        i32.const 0
+        return
+    end
+    call $getLinearMemoryOffset         ;; hash table is at start of usable memory
+    set_local $hashPtrBeg
+    get_local $inPtr
     tee_local $anchorPtr
     get_local $ilen
     i32.add
-    tee_local $outPtr0
-    tee_local $outPtr
+    tee_local $inPtrEnd
     i32.const -5                        ;; "The last 5 bytes are always literals."
     i32.add
-    tee_local $inPtr2
+    tee_local $inPtrEnd2
     i32.const -7                        ;; "The last match must start at least 12 bytes before end of block"
     i32.add
-    set_local $inPtr1
-    block $noMoreSequence loop $findSequence
+    set_local $inPtrEnd1
+    get_local $outPtr
+    set_local $outPtrBeg
+    ;;
+    ;; sequence processing loop
+    ;;
+    block $noMoreSequence loop $nextSequence
         get_local $inPtr
-        get_local $inPtr1
-        i32.ge_u
+        get_local $inPtrEnd1
+        i32.ge_u                        ;; 5 or less bytes left?
         br_if $noMoreSequence
         get_local $inPtr                ;; first sequence of 3 bytes before match-finding loop
         i32.load8_u
@@ -164,10 +175,13 @@
         i32.shl
         i32.or
         set_local $seq32
-        block loop $findMatch           ;; match-finding loop
+        ;;
+        ;; match-finding loop
+        ;;
+        loop $findMatch block $noMatchFound
             get_local $inPtr
-            get_local $inPtr2
-            i32.ge_u
+            get_local $inPtrEnd2
+            i32.gt_u                    ;; less than 12 bytes left?
             br_if $noMoreSequence
             get_local $seq32            ;; update last byte of current sequence
             i32.const 8
@@ -184,7 +198,7 @@
             i32.shr_u                   ;; hash value is at top of stack
             i32.const 2                 ;; lookup refPtr at hash entry
             i32.shl
-            get_local $hashPtr0
+            get_local $hashPtrBeg
             i32.add
             tee_local $hashPtr
             i32.load
@@ -197,29 +211,19 @@
             i32.sub
             tee_local $moffset          ;; remember match offset, we will need it in case of match
             i32.const 0xFFFF
-            i32.gt_s
-            if
-                get_local $inPtr
-                i32.const 1
-                i32.add
-                set_local $inPtr
-                br $findMatch           ;; match offset > 65535 = unusable match
-            end
+            i32.gt_s                    ;; match offset > 65535 = unusable match
+            br_if $noMatchFound
+            ;;
             ;; confirm match: different sequences can yield same hash
-            ;; compare-branch each byte to potentially save memory read
+            ;; compare-branch each byte to potentially save memory read ops
+            ;;
             get_local $seq32            ;; byte 0
             i32.const 0xFF
             i32.and
             get_local $refPtr
             i32.load8_u
-            i32.ne
-            if
-                get_local $inPtr
-                i32.const 1
-                i32.add
-                set_local $inPtr
-                br $findMatch           ;; refPtr[0] !== inPtr[0]
-            end
+            i32.ne                      ;; refPtr[0] !== inPtr[0]
+            br_if $noMatchFound
             get_local $seq32            ;; byte 1
             i32.const 8
             i32.shr_u
@@ -228,13 +232,7 @@
             get_local $refPtr
             i32.load8_u offset=1
             i32.ne
-            if
-                get_local $inPtr
-                i32.const 1
-                i32.add
-                set_local $inPtr
-                br $findMatch           ;; refPtr[1] !== inPtr[1]
-            end
+            br_if $noMatchFound         ;; refPtr[1] !== inPtr[1]
             get_local $seq32            ;; byte 2
             i32.const 16
             i32.shr_u
@@ -242,14 +240,8 @@
             i32.and
             get_local $refPtr
             i32.load8_u offset=2
-            i32.ne
-            if
-                get_local $inPtr
-                i32.const 1
-                i32.add
-                set_local $inPtr
-                br $findMatch           ;; refPtr[2] !== inPtr[2]
-            end
+            i32.ne                      ;; refPtr[2] !== inPtr[2]
+            br_if $noMatchFound
             get_local $seq32            ;; byte 3
             i32.const 24
             i32.shr_u
@@ -257,14 +249,8 @@
             i32.and
             get_local $refPtr
             i32.load8_u offset=3
-            i32.ne
-            if
-                get_local $inPtr
-                i32.const 1
-                i32.add
-                set_local $inPtr
-                br $findMatch           ;; refPtr[3] !== inPtr[3]
-            end
+            i32.ne                      ;; refPtr[3] !== inPtr[3]
+            br_if $noMatchFound
             ;;
             ;; a valid match has been found at this point
             ;;
@@ -279,12 +265,11 @@
             get_local $refPtr
             i32.const 4
             i32.add
+            tee_local $mlen             ;; remember refPtr to later compute match length
             set_local $refPtr
-            i32.const 0                 ;; scan input buffer until match ends
-            set_local $mlen
-            block $endOfMatch loop
+            block $endOfMatch loop      ;; scan input buffer until match ends
                 get_local $inPtr
-                get_local $inPtr2
+                get_local $inPtrEnd2
                 i32.ge_u
                 br_if $endOfMatch
                 get_local $inPtr
@@ -301,16 +286,15 @@
                 i32.const 1
                 i32.add
                 set_local $refPtr
-                get_local $mlen
-                i32.const 1
-                i32.add
-                set_local $mlen
                 br 0
             end end $endOfMatch
             ;; encode token
             get_local $outPtr           ;; output token
             get_local $llen
+            get_local $refPtr
             get_local $mlen
+            i32.sub
+            tee_local $mlen
             call $writeToken
             get_local $outPtr
             i32.const 1
@@ -358,47 +342,52 @@
             end
             get_local $inPtr            ;; advance anchor to current position
             set_local $anchorPtr
-        end end
-        br $findSequence
+            br $nextSequence
+        end $noMatchFound
+        get_local $inPtr                ;; no match found: advance to next byte
+        i32.const 1
+        i32.add
+        set_local $inPtr
+        br $findMatch end               ;; match offset > 65535 = unusable match
     end end $noMoreSequence
     ;;
     ;; generate last (match-less) sequence if compression succeeded
     ;;
     get_local $outPtr
-    get_local $outPtr0
-    i32.gt_u
+    get_local $outPtrBeg
+    i32.eq
+    if
+        i32.const 0
+        return
+    end
+    get_local $outPtr
+    get_local $inPtrEnd
+    get_local $anchorPtr
+    i32.sub
+    tee_local $llen
+    i32.const 0
+    call $writeToken
+    get_local $outPtr
+    i32.const 1
+    i32.add
+    set_local $outPtr
+    get_local $llen
+    i32.const 15
+    i32.ge_u
     if
         get_local $outPtr
-        get_local $outPtr0
-        get_local $anchorPtr
-        i32.sub
-        tee_local $llen
-        i32.const 0
-        call $writeToken
-        get_local $outPtr
-        i32.const 1
-        i32.add
-        set_local $outPtr
         get_local $llen
-        i32.const 15
-        i32.ge_u
-        if
-            get_local $outPtr
-            get_local $llen
-            call $writeLength
-            set_local $outPtr
-        end
-        get_local $outPtr
-        get_local $anchorPtr
-        get_local $llen
-        call $copy
-        get_local $outPtr
-        get_local $llen
-        i32.add
+        call $writeLength
         set_local $outPtr
     end
+    get_local $outPtr
+    get_local $anchorPtr
+    get_local $llen
+    call $copy
     get_local $outPtr                   ;; return number of written bytes
-    get_local $outPtr0
+    get_local $llen
+    i32.add
+    get_local $outPtrBeg
     i32.sub
 )
 

@@ -113,7 +113,11 @@ let LZ4WASM = (function() {
             inputArea.set(new Uint8Array(input, inputByteOffset, inputByteLength));
             let outputSize = 0;
             try {
-                outputSize = lz4BlockEncode(inputByteLength);
+                outputSize = lz4BlockEncode(
+                    memoryOrigin + hashTableArea.byteLength,
+                    inputByteLength,
+                    memoryOrigin + hashTableArea.byteLength + inputByteLength
+                );
             } catch(ex) {
                 console.error(ex);
             }

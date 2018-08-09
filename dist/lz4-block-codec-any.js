@@ -129,7 +129,7 @@ let createInstanceJS = function() {
 
 /******************************************************************************/
 
-context.LZ4BlockCodec = {
+context.lz4BlockCodec = {
     createInstance: function(flavor) {
         let instantiator;
         if ( flavor === 'wasm' ) {

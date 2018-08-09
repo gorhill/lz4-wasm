@@ -1,4 +1,4 @@
-/* globals Benchmark, LZ4BlockCodec, SnappyJS, require */
+/* globals Benchmark, SnappyJS, lz4BlockCodec, require */
 
 'use strict';
 
@@ -254,10 +254,10 @@ function doBenchmark() {
 }
 
 Promise.all([
-    LZ4BlockCodec.createInstance('js').then(instance => {
+    lz4BlockCodec.createInstance('js').then(instance => {
         lz4BlockJS = instance;
     }),
-    LZ4BlockCodec.createInstance('wasm').then(instance => {
+    lz4BlockCodec.createInstance('wasm').then(instance => {
         lz4BlockWASM = instance;
     })
 ]).then(( ) => {

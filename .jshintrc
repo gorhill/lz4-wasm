@@ -1,0 +1,16 @@
+{
+	"browser": true,
+	"devel": true,
+	"eqeqeq": true,
+	"esnext": true,
+	"globals": {
+		"self": false
+	},
+	"newcap": false,
+	"nonew": false,
+	"strict": "global",
+	"sub": true,
+	"undef": true,
+	"unused": true,
+	"validthis": true
+}

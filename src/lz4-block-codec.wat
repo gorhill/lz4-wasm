@@ -1,5 +1,5 @@
 ;;
-;; lz4-wasm - a WebAssembly implementation of LZ4 block format codec
+;; lz4-block-codec.wat: a WebAssembly implementation of LZ4 block format codec
 ;; Copyright (C) 2018 Raymond Hill
 ;;
 ;; BSD-2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
@@ -392,17 +392,22 @@
 )
 
 ;;
-;; unsigned int lz4BlockDecode(unsigned int ilen)
+;; unsigned int lz4BlockDecode(
+;;     unsigned int inPtr,
+;;     unsigned int ilen
+;;     unsigned int outPtr
+;; )
 ;;
 ;; Reference:
 ;; https://github.com/lz4/lz4/blob/dev/doc/lz4_Block_format.md
 ;;
 (func (export "lz4BlockDecode")
-    (param $ilen i32)
+    (param $inPtr0 i32)                 ;; start of input buffer
+    (param $ilen i32)                   ;; length of input buffer
+    (param $outPtr0 i32)                ;; start of output buffer
     (result i32)
-    (local $inPtr0 i32)                 ;; start of input buffer
     (local $inPtr i32)                  ;; current position in input buffer
-    (local $outPtr0 i32)                ;; start of output buffer
+    (local $inPtrEnd i32)               ;; end of input buffer
     (local $outPtr i32)                 ;; current position in output buffer
     (local $matchPtr i32)               ;; position of current match
     (local $token i32)                  ;; sequence token
@@ -414,16 +419,16 @@
         i32.const 0
         return
     end
-    call $getLinearMemoryOffset
-    tee_local $inPtr0                   ;; start of input buffer
+    get_local $inPtr0
     tee_local $inPtr                    ;; current position in input buffer
     get_local $ilen
     i32.add
-    tee_local $outPtr0                  ;; start of output buffer
+    set_local $inPtrEnd
+    get_local $outPtr0                  ;; start of output buffer
     set_local $outPtr                   ;; current position in output buffer
     block $noMoreSequence loop          ;; iterate through all sequences
         get_local $inPtr
-        get_local $outPtr0
+        get_local $inPtrEnd
         i32.ge_u
         br_if $noMoreSequence           ;; break when nothing left to read in input buffer
         get_local $inPtr                ;; read token -- consume one byte
@@ -469,7 +474,7 @@
             get_local $inPtr
             i32.add
             tee_local $inPtr
-            get_local $outPtr0          ;; exit if this is the last sequence
+            get_local $inPtrEnd         ;; exit if this is the last sequence
             i32.eq
             br_if $noMoreSequence
         end
@@ -487,7 +492,7 @@
         i32.eq
         br_if $noMoreSequence
         get_local $matchPtr
-        get_local $outPtr0
+        get_local $inPtrEnd
         i32.lt_u
         br_if $noMoreSequence
         get_local $inPtr                ;; advance input pointer past match offset bytes

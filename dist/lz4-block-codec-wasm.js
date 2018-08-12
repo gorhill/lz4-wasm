@@ -125,6 +125,7 @@ context.LZ4BlockWASM = function() {
 
 context.LZ4BlockWASM.prototype = {
     flavor: 'wasm',
+
     init: function() {
         if ( this.lz4wasmInstance instanceof WebAssembly.Instance ) {
             return Promise.resolve(this.lz4wasmInstance);
@@ -135,7 +136,7 @@ context.LZ4BlockWASM.prototype = {
             typeof WebAssembly.instantiateStreaming !== 'function'
         ) {
             this.lz4wasmInstance = null;
-            return Promise.reject(new Error('LZ4BlockWASM: No WebAssembly'));
+            return Promise.resolve(null);
         }
         if ( this.lz4wasmInstance === undefined ) {
             this.lz4wasmInstance = WebAssembly.instantiateStreaming(
@@ -144,10 +145,11 @@ context.LZ4BlockWASM.prototype = {
                 this.lz4wasmInstance = undefined;
                 this.lz4wasmInstance = result && result.instance || null;
                 if ( this.lz4wasmInstance !== null ) { return this; }
-                return Promise.reject(new Error('LZ4BlockWASM: No WebAssembly'));
+                return null;
             });
             this.lz4wasmInstance.catch(( ) => {
                 this.lz4wasmInstance = null;
+                return null;
             });
         }
         return this.lz4wasmInstance;
@@ -155,6 +157,12 @@ context.LZ4BlockWASM.prototype = {
 
     reset: function() {
         this.lz4wasmInstance = undefined;
+    },
+
+    bytesInUse: function() {
+        return this.lz4wasmInstance instanceof WebAssembly.Instance ?
+            this.lz4wasmInstance.exports.memory.buffer.byteLength :
+            0;
     },
 
     encodeBlock: function(input, outputOffset) {

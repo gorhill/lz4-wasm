@@ -28,10 +28,12 @@ function lz4Decode(input) {
 let lz4BlockJS;
 
 function lz4BlockJSEncode(input) {
+    if ( !lz4BlockJS ) { return; }
     return lz4BlockJS.encodeBlock(input, 0);
 }
 
 function lz4BlockJSDecode(input) {
+    if ( !lz4BlockJS ) { return; }
     return lz4BlockJS.decodeBlock(input, 0, gFileBuffer.byteLength);
 }
 
@@ -40,10 +42,12 @@ function lz4BlockJSDecode(input) {
 let lz4BlockWASM;
 
 function lz4BlockWASMEncode(input) {
+    if ( !lz4BlockWASM ) { return; }
     return lz4BlockWASM.encodeBlock(input, 0);
 }
 
 function lz4BlockWASMDecode(input) {
+    if ( !lz4BlockWASM ) { return; }
     return lz4BlockWASM.decodeBlock(input, 0, gFileBuffer.byteLength);
 }
 
@@ -82,17 +86,6 @@ function processFile(ev) {
     let compressed;
 
     // Verify codecs are working as expected
-    compressed = lz4Encode(gFileBuffer);
-    if ( validateCodec(lz4Decode(compressed)) ) {
-        stdout(0, '      pierrec/node-lz4: ');
-        clen = compressed.byteLength;
-        stdout(0, clen.toLocaleString() + ' / ' + ulen.toLocaleString() + ' = ');
-        stdout(0, (clen * 100 / ulen).toFixed(0) + '%');
-        stdout(0, '\n');
-    } else {
-        stdout(0, '      pierrec/node-lz4: failed\n');
-    }
-
     compressed = SnappyJS.compress(gFileBuffer);
     if ( validateCodec(SnappyJS.uncompress(compressed)) ) {
         stdout(0, '  zhipeng-jia/snappyjs: ');
@@ -104,6 +97,17 @@ function processFile(ev) {
         stdout(0, '  zhipeng-jia/snappyjs: failed\n');
     }
 
+    compressed = lz4Encode(gFileBuffer);
+    if ( validateCodec(lz4Decode(compressed)) ) {
+        stdout(0, '      pierrec/node-lz4: ');
+        clen = compressed.byteLength;
+        stdout(0, clen.toLocaleString() + ' / ' + ulen.toLocaleString() + ' = ');
+        stdout(0, (clen * 100 / ulen).toFixed(0) + '%');
+        stdout(0, '\n');
+    } else {
+        stdout(0, '      pierrec/node-lz4: failed\n');
+    }
+
     // For lz4-block.js, we also verify that its output is really
     // lz4-compatible -- node-lz4 is used as the reference codec.
     if ( validateCodec(lz4Decode(lz4BlockJSEncode(gFileBuffer))) === false ) {
@@ -111,7 +115,7 @@ function processFile(ev) {
     } else if ( validateCodec(lz4BlockJSDecode(lz4Encode(gFileBuffer))) === false ) {
         stdout(0, '  gorhill/lz4-block.js: failed to decode\n');
     } else {
-        compressed = lz4BlockJSEncode(gFileBuffer);
+        compressed = new Uint8Array(lz4BlockJSEncode(gFileBuffer));
         if ( validateCodec(lz4BlockJSDecode(compressed)) ) {
             stdout(0, '  gorhill/lz4-block.js: ');
             clen = compressed.byteLength;
@@ -130,7 +134,7 @@ function processFile(ev) {
     } else if ( validateCodec(lz4BlockWASMDecode(lz4Encode(gFileBuffer))) === false ) {
         stdout(0, 'gorhill/lz4-block.wasm: failed to decode\n');
     } else {
-        compressed = lz4BlockWASMEncode(gFileBuffer);
+        compressed = new Uint8Array(lz4BlockWASMEncode(gFileBuffer));
         if ( validateCodec(lz4BlockWASMDecode(compressed)) === false ) {
             stdout(0, 'gorhill/lz4-block.wasm: failed to self-decode\n');
         } else {
@@ -213,9 +217,9 @@ function prepareBenchmark() {
                 lz4BlockWASMDecode(lz4wasmCompressed);
                 })
             .on('start', function() {
-                lz4Compressed = lz4Encode(gFileBuffer);
-                lz4JSCompressed = lz4BlockJSEncode(gFileBuffer);
                 snappyCompressed = SnappyJS.compress(gFileBuffer);
+                lz4Compressed = lz4Encode(gFileBuffer);
+                lz4JSCompressed = new Uint8Array(lz4BlockJSEncode(gFileBuffer));
                 lz4wasmCompressed = new Uint8Array(lz4BlockWASMEncode(gFileBuffer));
                 stdout(gWhich + 2, 'Uncompress:\n');
                 })
